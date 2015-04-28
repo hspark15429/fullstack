@@ -2,6 +2,7 @@ from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 import cgi
 import setupDB #  set up SQLALCHEMY, created a session with restaurantMenu attached.
 
+
 class webServerHandler(BaseHTTPRequestHandler):
 	#  make calling from setupDB module simpler
 	session = setupDB.session
@@ -17,7 +18,7 @@ class webServerHandler(BaseHTTPRequestHandler):
 
 				output = ""
 				output += "<html><body><h1>Hello!</h1>"
-				output += '''<form method='POST' enctype='multipart/form-data' action='/hello'><h2>What would you like me to say?</h2><input name="message" type="text"><input type="submit" value="Submit"></form>'''
+				output += '''<form method='POST' enctype='multipart/form-data'><h2>What would you like me to say?</h2><input name="message" type="text"><input type="submit" value="Submit"></form>'''
 				output += "</body></html>"
 
 				self.wfile.write(output)
@@ -31,7 +32,7 @@ class webServerHandler(BaseHTTPRequestHandler):
 
 				output = ""
 				output += "<html><body><h1>&#161 Hola !</h1>"
-				output += '''<form method='POST' enctype='multipart/form-data' action='/hello'><h2>What would you like me to say?</h2><input name="message" type="text"><input type="submit" value="Submit"</form>'''
+				output += '''<form method='POST' enctype='multipart/form-data'><h2>What would you like me to say?</h2><input name="message" type="text"><input type="submit" value="Submit"></form>'''
 				output += "</body></html>"
 
 				self.wfile.write(output)
@@ -47,10 +48,12 @@ class webServerHandler(BaseHTTPRequestHandler):
 				restaurant_names = [restaurant.name for restaurant in restaurants]
 				RnamesHTML = ""
 				for name in restaurant_names:
-					RnamesHTML += "<li>" + name + "</li>"
+					RnamesHTML += "<li>" + name + "</li>" + "<a href='#'>Edit</a>"\
+								  + "</br>" + "<a href='#'>Delete</a>"
 				
 				output = ""
 				output += "<html><body>"
+				output += "<a href='/restaurants/new'>Make a New Restaurant Here</a>"
 				output += "<ul>{}</ul>".format(RnamesHTML)
 				output += "</html></body>"
 
@@ -58,29 +61,43 @@ class webServerHandler(BaseHTTPRequestHandler):
 				print(output)
 				return
 
+			if self.path.endswith("/restaurants/new"):
+				self.send_response(200)
+				self.send_header('Content-type', 'text/html')
+				self.end_headers()
+
+				output = ""
+				output += "<html><body>"
+				output += '''<form method='POST' enctype='multipart/form-data'><h2>Make a New Restaurant</h2><input name="newRestaurant" type="text"><input type="submit" value="Submit"></form>'''
+				output += "</body></html>"
+
+				self.wfile.write(output)
+				return
+
+
 		except IOError:
 			self.send_error(404, "File Not Found {}".format(self.path))
 
 	def do_POST(self):
-		try:	
-			self.send_response(301)
-			self.send_header('Content-type', 'text/html')
-			self.end_headers()
+		try:
+			if self.path.endswith("/restaurants/new"):
 
-			ctype, pdict = cgi.parse_header(self.headers.getheader('Content-type'))
-			if ctype == 'multipart/form-data':
-				fields=cgi.parse_multipart(self.rfile, pdict)
-				messagecontent = fields.get('message')
+				ctype, pdict = cgi.parse_header(self.headers.getheader('Content-type'))
+				if ctype == 'multipart/form-data':
+					fields=cgi.parse_multipart(self.rfile, pdict)
+					messagecontent = fields.get('newRestaurant')
 
-			output = ''
-			output += '<html><body>'
-			output += '<h2> Okay, how about this: </h2>'
-			output += '<h1> {} </h1>'.format(messagecontent[0])
-			output += '''<form method='POST' enctype='multipart/form-data' action='/hello'><h2>What would you like me to say?</h2><input name="message" type="text" ><input type="submit" value="Submit"></form>'''
-			output += '</body></html>'
-			self.wfile.write(output)
-			print (output)
+				newRestaurant = self.Restaurant(name = messagecontent[0])
 
+				self.session.add(newRestaurant)
+				self.session.commit()
+
+				self.send_response(301)
+				self.send_header('Content-type', 'text/html')
+				self.send_header('location', '/restaurants')
+				self.end_headers()
+
+				return
 		except:
 			pass
 
