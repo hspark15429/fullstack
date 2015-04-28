@@ -1,7 +1,13 @@
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 import cgi
+import setupDB #  set up SQLALCHEMY, created a session with restaurantMenu attached.
 
 class webServerHandler(BaseHTTPRequestHandler):
+	#  make calling from setupDB module simpler
+	session = setupDB.session
+	Restaurant = setupDB.Restaurant
+	MenuItem = setupDB.MenuItem
+
 	def do_GET(self):
 		try:
 			if self.path.endswith("/hello"):
@@ -37,8 +43,20 @@ class webServerHandler(BaseHTTPRequestHandler):
 				self.send_header('Content-type', 'text/html')
 				self.end_headers()
 
-				restaurant_names = 
+				restaurants = self.session.query(self.Restaurant).all()
+				restaurant_names = [restaurant.name for restaurant in restaurants]
+				RnamesHTML = ""
+				for name in restaurant_names:
+					RnamesHTML += "<li>" + name + "</li>"
+				
 				output = ""
+				output += "<html><body>"
+				output += "<ul>{}</ul>".format(RnamesHTML)
+				output += "</html></body>"
+
+				self.wfile.write(output)
+				print(output)
+				return
 
 		except IOError:
 			self.send_error(404, "File Not Found {}".format(self.path))
