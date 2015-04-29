@@ -1,6 +1,7 @@
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 import cgi
 import setupDB #  set up SQLALCHEMY, created a session with restaurantMenu attached.
+import re
 
 
 class webServerHandler(BaseHTTPRequestHandler):
@@ -46,9 +47,10 @@ class webServerHandler(BaseHTTPRequestHandler):
 
 				restaurants = self.session.query(self.Restaurant).all()
 				restaurant_names = [restaurant.name for restaurant in restaurants]
+				restaurant_ids = [restaurant.id for restaurant in restaurants]
 				RnamesHTML = ""
-				for name in restaurant_names:
-					RnamesHTML += "<li>" + name + "</li>" + "<a href='#'>Edit</a>"\
+				for name, restaurant_id in zip(restaurant_names, restaurant_ids):
+					RnamesHTML += "<li>" + name + "</li>" + "<a href='restaurants/{}/edit'>Edit</a>".format(restaurant_id)\
 								  + "</br>" + "<a href='#'>Delete</a>"
 				
 				output = ""
@@ -58,7 +60,7 @@ class webServerHandler(BaseHTTPRequestHandler):
 				output += "</html></body>"
 
 				self.wfile.write(output)
-				print(output)
+				# print(output)
 				return
 
 			if self.path.endswith("/restaurants/new"):
@@ -69,6 +71,23 @@ class webServerHandler(BaseHTTPRequestHandler):
 				output = ""
 				output += "<html><body>"
 				output += '''<form method='POST' enctype='multipart/form-data'><h2>Make a New Restaurant</h2><input name="newRestaurant" type="text"><input type="submit" value="Submit"></form>'''
+				output += "</body></html>"
+
+				self.wfile.write(output)
+				return
+
+			if re.match(".*/restaurants/[0-9]+/edit", self.path):
+				self.send_response(200)
+				self.send_header('Content-type', 'text/html')
+				self.end_headers()
+
+				restaurant_id = int(re.match(".*/restaurants/([0-9]+)/edit", self.path).group(1))
+				thisRestaurant = self.session.query(self.Restaurant).filter_by(id=restaurant_id).one()
+
+				output = ""
+				output += "<html><body>"
+				output += "<h1>"+thisRestaurant.name+"</h1>"
+				output += '''<form method='POST' enctype='multipart/form-data'><input name="newName" type="text"><input type="submit" value="Rename"></form>'''
 				output += "</body></html>"
 
 				self.wfile.write(output)
@@ -98,6 +117,25 @@ class webServerHandler(BaseHTTPRequestHandler):
 				self.end_headers()
 
 				return
+
+			if re.match(".*/restaurants/[0-9]+/edit", self.path):
+
+				ctype, pdict = cgi.parse_header(self.headers.getheader('Content-type'))
+				if ctype == 'multipart/form-data':
+					fields=cgi.parse_multipart(self.rfile, pdict)
+					messagecontent = fields.get('newName')
+				
+				restaurant_id = int(re.match(".*/restaurants/([0-9]+)/edit", self.path).group(1))
+				thisRestaurant = self.session.query(self.Restaurant).filter_by(id=restaurant_id).one()
+				thisRestaurant.name = messagecontent[0]
+				self.session.add(thisRestaurant)
+				self.session.commit()
+
+				self.send_response(301)
+				self.send_header('Content-type', 'text/html')
+				self.send_header('location', '/restaurants')
+				self.end_headers()
+
 		except:
 			pass
 
